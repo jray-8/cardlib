@@ -16,7 +16,18 @@ ENGLISH_ALPH_ORDER = ('clubs', 'diamonds', 'hearts', 'spades', 'black', 'red')
 class Deck:
 	'''Represents a deck of cards with shared rank/suit rules.'''
 
-	def __init__(self, include_jokers=False, rank_values=None, suit_order=ENGLISH_ALPH_ORDER, shuffle=False):
+	def __init__(self, include_jokers=False, rank_values=None, suit_order=ENGLISH_ALPH_ORDER, shuffle=True):
+		'''
+		Initialize a new Deck of cards.
+
+		Parameters:
+			include_jokers (bool): Include two jokers (red and black) if True. Default False.
+			rank_values (dict): Optional mapping of ranks (str) to numeric values. Defaults to standard 2-A + JOKER.
+			suit_order (tuple or None): Ascending order of suits for comparison. None means suits are equal. Default ENGLISH_ALPH_ORDER.
+			shuffle (bool): If True, the deck is shuffled immediately after creation. Default True.  
+				If False, cards remain in "new deck order" `A-K Hearts, A-K Clubs, K-A Diamonds, K-A Spades (bottom)`.
+		'''
+
 		# Shared rules for this deck
 		self.rank_values = rank_values or DEFAULT_RANK_VALUES
 		self.suit_order = suit_order
