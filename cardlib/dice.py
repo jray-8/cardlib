@@ -58,12 +58,12 @@ class Dice:
 	
 	@property
 	def values(self):
-		'''List of face values for each die.'''
+		'''List of the current face values for each die in the collection.'''
 		return [die.value for die in self._dice]
 	
 	@property
 	def faces(self):
-		'''List of face values for each die.'''
+		'''List of the current face values for each die in the collection (alias of `values`).'''
 		return self.values
 	
 	@property
