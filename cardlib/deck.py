@@ -100,7 +100,7 @@ class Deck:
 	
 	# --- Card comparison ---
 	def value(self, card):
-		'''get numeric value of card according to deck rules.'''
+		'''Get numeric value of card according to deck rules.'''
 		return self.rank_values.get(card.rank, 0)
 	
 	def compare(self, card1, card2):
