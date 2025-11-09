@@ -23,19 +23,15 @@ UP_RANKS = [Rank.ACE, Rank.TWO, Rank.THREE, Rank.FOUR, Rank.FIVE, Rank.SIX,
 
 class Deck:
 	'''
-	Represents a face-down deck of cards with shared rank/suit rules.
+	Represents a face-down deck of cards.
 
-	- The deck is ordered from top-bottom in user-facing access.
-
-		`deck[0]` is top card.
-
-	- Internally the cards are stored bottom-top  
-	for O(1) draw operations from the top.
-
-		`self._cards[0]` is bottom card.
+	- `deck[0]` = top card
+	- Internally: deque with left = top, right = bottom
+	- O(1) draw, and add to top/bottom
 	'''
 
 	def __init__(self,
+		*,
 		include_jokers=False,
 		rank_values=None,
 		suit_order=ENGLISH_ALPH_ORDER,
@@ -50,7 +46,7 @@ class Deck:
 			rank_values (dict): Optional mapping of ranks (str) to numeric values. Defaults to standard `2-A + JOKER`.
 			suit_order (tuple or None): Ascending order of suits for comparison. None means suits are equal. Default `ENGLISH_ALPH_ORDER`.
 			shuffle (bool): If True, the deck is shuffled immediately after creation. Default True.  
-				If False, cards remain in "new deck order" `A-K Hearts, A-K Clubs, K-A Diamonds, K-A Spades (bottom)`.
+				If False, cards remain in "New Deck Order" `A-K Hearts, Clubs, K-A Diamonds, Spades (bottom)`.
 			empty (bool): If True, the deck is not initialized with any cards.
 		'''
 
@@ -58,16 +54,15 @@ class Deck:
 		self.rank_values = rank_values or DEFAULT_RANK_VALUES
 		'''Dictionary mapping Ranks to their scores (int).'''
 		self.suit_order = suit_order
+		'''Ascending order of Suits or None.'''
 		self.include_jokers = include_jokers
 
-		# Map suits to their indices in the ordering
-		if self.suit_order is None:
-			self._suit_index = {}
-		else:
-			self._suit_index = {s: i for i, s in enumerate(self.suit_order)}
+		# Fast access to suit order values
+		self._suit_index = {s: i for i, s in enumerate(self.suit_order)} if self.suit_order else {}
+		'''Map suits to their indices in the ordering.'''
 
 		# Add cards in new deck order
-		self._cards = [] if empty else self._build_cards()
+		self._cards = deque() if empty else self._build_cards()
 		'''Ordered from bottom [0] to top [-1].'''
 
 		if shuffle:
@@ -75,18 +70,28 @@ class Deck:
 
 	def _build_cards(self):
 		'''
-		Build a standard deck in New Deck Order:  
-		`A-K Hearts, A-K Clubs, K-A Diamonds, K-A Spades (bottom)`
+		Returns a deque in New Deck Order:
+
+		`Hearts (A-K), Clubs (A-K), Diamonds (K-A), Spades (K-A), (bottom)`
 		'''
-		self._cards = [Card(rank, suit) for suit in [Suit.HEARTS, Suit.CLUBS] for rank in UP_RANKS]
-		self._cards += [Card(rank, suit) for suit in [Suit.DIAMONDS, Suit.SPADES] for rank in reversed(UP_RANKS)]
-		
+		cards = deque()
+		# Hearts & Clubs: A-K
+		for suit in (Suit.HEARTS, Suit.CLUBS):
+			for rank in UP_RANKS:
+				cards.append(Card(rank, suit))
+		# Diamonds & Spades: K-A
+		for suit in (Suit.DIAMONDS, Suit.SPADES):
+			for rank in reversed(UP_RANKS):
+				cards.append(Card(rank, suit))
 		if self.include_jokers:
-			self._cards += [Card(Rank.JOKER, Suit.BLACK), Card(Rank.JOKER, Suit.RED)]
+			cards.append(Card(Rank.JOKER, Suit.BLACK))
+			cards.append(Card(Rank.JOKER, Suit.RED))
+		return cards
 
 	@classmethod
 	def from_cards(cls,
 		cards,
+		*,
 		include_jokers=False,
 		rank_values=None,
 		suit_order=ENGLISH_ALPH_ORDER,
@@ -96,23 +101,23 @@ class Deck:
 		'''
 		Create a deck from an existing list of cards.
 
-		Assumes top-bottom (from left to right) order of cards.
+		Assumes top-bottom (left to right) order of cards.
 
 		Parameters:
-			cards: iterable of card instances
+			cards: iterable of card instances (top-bottom)
 			include_jokers (bool):
 			rank_values (dict):
 			suit_order (tuple or None):
 			shuffle (bool): Whether to shuffle after creation
-			_no_copy (bool): INTERNAL FLAG: skip making a reversed copy of the cards list (for performance)
+			_no_copy (bool): INTERNAL FLAG: skip making a copy of the deque container (for performance)
 		'''
-		deck = cls(empty=True, include_jokers=include_jokers, rank_values=rank_values, suit_order=suit_order)
-		# Reference the same list container, assuming caller guarantees safety and internal order 
-		# (.append adds to both)
+		deck = cls(empty=True, include_jokers=include_jokers, 
+				rank_values=rank_values, suit_order=suit_order)
+		# Reference the same deque object, assuming caller guarantees safety
 		if _no_copy:
 			deck._cards = cards
-		else: # Make a fresh list so this deck can modify its container independently
-			deck._cards = cards[::-1] # reverse to match internal order (bottom-top)
+		else:
+			deck._cards.extend(cards)
 		if shuffle:
 			deck.shuffle()
 		return deck
@@ -125,21 +130,15 @@ class Deck:
 			deep (bool): If True, also clones each card object.  
 				If False, cards are shared by reference (default).
 		'''
-		# Always make a new card container (list); optionally make copies of the cards.
-		# Deck.from_cards will copy the list(self._cards)
-		new_cards = copy.deepcopy(self._cards) if deep else self._cards
-		return Deck.from_cards(
-			new_cards,
-			include_jokers=self.include_jokers,
-			rank_values=self.rank_values,
-			suit_order=self.suit_order,
-			shuffle=False
-		)
+		# Always make a new card container (deque); optionally make copies of the cards.
+		new_cards = copy.deepcopy(self._cards) if deep else deque(self._cards)
+		deck = Deck(empty=True, include_jokers=self.include_jokers,
+					rank_values=self.rank_values, suit_order=self.suit_order)
+		deck._cards = new_cards
+		return deck
 	
 	def __repr__(self):
-		if len(self._cards) == 1:
-			return f'Deck(1 card)'
-		return f'Deck({len(self._cards)} cards)'
+		return f"Deck({len(self._cards)} card{'s' if len(self._cards) != 1 else ''})"
 	
 	def __str__(self):
 		return repr(self)
@@ -148,21 +147,20 @@ class Deck:
 	# --- Deck operations ---
 	def shuffle(self):
 		'''Shuffle deck in place.'''
-		random.shuffle(self._cards)
+		cards = list(self._cards) # temp list
+		random.shuffle(cards)
+		self._cards = deque(cards)
 
 	def reset(self, shuffle=True):
 		'''Rebuild deck to its original state.'''
-		self._build_cards()
+		self._cards = self._build_cards()
 		if shuffle:
 			self.shuffle()
 
 	def show(self, start=0, stop=None, step=1):
 		'''Print cards in specified range; supports full Python slicing.'''
-		cards_to_show = self._cards[::-1][start:stop:step]
-		if not cards_to_show:
-			print('(empty)')
-		else:
-			print(', '.join(map(str, cards_to_show)))
+		cards_to_show = list(self._cards)[start:stop:step]
+		print(', '.join(map(str, cards_to_show)) or '(empty)')
 
 	def draw(self, n=1, strict=True):
 		'''Draw `n` cards from the top of the deck and remove them.
@@ -175,8 +173,7 @@ class Deck:
 		if strict and n > len(self._cards):
 			raise ValueError('not enough cards left to draw')
 		to_draw = min(n, len(self._cards))
-		drawn = [self._cards.pop() for _ in range(to_draw)]
-		return drawn
+		return [self._cards.popleft() for _ in range(to_draw)]
 	
 	def deal(self, num_hands, cards_each, strict=True):
 		'''
@@ -190,21 +187,19 @@ class Deck:
 		Returns:
 			list[list[Card]]: A list of hands, each a list of card objects.
 		'''
-		if num_hands < 1:
-			raise ValueError('num_hands must be at least 1')
-		if cards_each < 0:
-			raise ValueError('cards_each must be positive')
+		if num_hands < 0 or cards_each < 0:
+			raise ValueError('deal parameters cannot be negative')
 
-		total_needed = num_hands * cards_each
-		if strict and total_needed > len(self._cards):
+		total = num_hands * cards_each
+		if strict and total > len(self._cards):
 			raise ValueError('not enough cards left to deal')
 		
 		hands = [[] for _ in range(num_hands)]
 		for _ in range(cards_each):
-			for j in range(num_hands):
+			for hand in hands:
 				if not self._cards: # ran out of cards
 					break
-				hands[j].append(self._cards.pop())
+				hand.append(self._cards.popleft())
 		return hands
 	
 	def split(self, n=2, strict=False):
@@ -212,94 +207,88 @@ class Deck:
 		Split the deck into `n` sub-decks as evenly as possible using all cards.
 		
 		If strict=True, sub-decks will have an equal number of cards  
-		(extras on top will be discarded).
+		(extras on bottom will be discarded).
 
 		Returns:
-			list[Deck]: A list of Decks cut from the bottom of this one (from left-right).
+			list[Deck]: A list of Decks cut from the top of this one (left-right).
 		'''
-		if n < 2 or n > len(self._cards):
-			raise ValueError('n must be at least 2')
-		k = len(self._cards) / n # cards per group (float)
-		if strict:
-			k = int(k)
-		return [
-			Deck.from_cards(
-				self._cards[round(i*k):round((i+1)*k)], # a slice creates a new list object
-				include_jokers=self.include_jokers,
-				rank_values=self.rank_values,
-				suit_order=self.suit_order,
-				shuffle=False,
-				_no_copy=True
-			) 
-		for i in range(n)]
+		if n < 2:
+			raise ValueError('n must be >= 2')
+		if n > len(self._cards):
+			raise ValueError('n cannot exceed deck size')
+		
+		total = len(self._cards)
+		k = total // n # cards per group
+		remainder = total % n # r groups will get 1 extra card
+
+		result = []
+		temp = deque(self._cards)
+
+		for i in range(n):
+			chunk_size = k if strict else k + (1 if i < remainder else 0)
+			cards = deque(temp.popleft() for _ in range(chunk_size))
+			result.append(Deck.from_cards(cards,
+					include_jokers=self.include_jokers, 
+					rank_values=self.rank_values,
+					suit_order=self.suit_order,
+					_no_copy=True
+			))
+		return result
 	
 
 	# --- Container magic ---
 	def __len__(self):
 		return len(self._cards)
 	
-	def _reverse_slice(self, s: slice, list_len):
-		'''Returns a new slice object `t` such that `list[s] == list[::-1][t]`.'''
-		indices = s.indices(list_len)
-		start = list_len - 1 - indices[0]
-		end = list_len - 1 - indices[1]
-		if end < 0:
-			end = None # -1 cannot mark end
-		step = -indices[2]
-		return slice(start, end, step)
+	def __getitem__(self, i):
+		if isinstance(i, slice):
+			return list(self._cards)[i]
+		return self._cards[i]
 	
-	def _reverse_index(self, index):
-		'''Returns the equivalent index for the internal list `self._cards`.'''
-		if index < 0: # normalize negatives
-			index += len(self._cards)
-		return len(self._cards) - 1 - index # 0 <-> len(self._cards) - 1
-	
-	def __getitem__(self, key):
-		if isinstance(key, slice):
-			return self._cards[self._reverse_slice(key)]
-		
-		# Single index
-		return self._cards[self._reverse_index(key)]
-	
-	def __setitem__(self, key, value):
-		if not isinstance(value, Card):
+	def __setitem__(self, i, card):
+		if not isinstance(card, Card):
 			raise TypeError('Deck can only contain Card instances')
-		
-		if isinstance(key, slice):
-			self._cards[self._reverse_slice(key)] = value
+		temp = list(self._cards)
+		temp[i] = card
+		self._cards = deque(temp)
 
-		# Single index
-		self._cards[self._reverse_index(key)] = value
-
-	def __delitem__(self, key):
-		if isinstance(key, slice):
-			del self._cards[self._reverse_slice(key)]
-
-		# Single index
-		del self._cards[self._reverse_index(key)]
+	def __delitem__(self, i):
+		temp = list(self._cards)
+		del temp[i]
+		self._cards = deque(temp)
 	
 	def __iter__(self):
-		return reversed(self._cards)
+		return iter(self._cards) # top to bottom
 
 	# --- Container methods ---
 	def clear(self):
 		'''Remove all cards from deck.'''
-		self._cards = []
+		self._cards.clear()
 
 	def reverse(self):
 		'''Reverse the order of the deck.'''
 		self._cards.reverse()
 
 	def pop(self, index=0):
-		'''Remove and return card at index (default top of deck = 0).'''
-		return self._cards.pop(self._reverse_index(index))
+		'''Remove and return card at index (0 = top).  
+		O(n) for arbitrary index.'''
+		if index == 0:
+			return self._cards.popleft()
+		elif index == -1:
+			return self._cards.pop()
+		else:
+			temp = list(self._cards)
+			card = temp.pop(index)
+			self._cards = deque(temp)
+			return card
 	
 	def insert(self, index, card):
 		'''Insert card before index (top of deck = 0).'''
 		if not isinstance(card, Card):
-			raise TypeError('Can only insert Card instances')
-		# Add plus 1 because the left of elem in cards is the right of elem in cards[::-1]
-		self._cards.insert(self._reverse_index(index) + 1, card)
+			raise TypeError('can only insert Card instances')
+		temp = list(self._cards)
+		temp.insert(index, card)
+		self._cards = deque(temp)
 
 	def add(self, *cards, position='bottom'):
 		'''
@@ -317,22 +306,22 @@ class Deck:
 			if isinstance(item, Card):
 				flat_cards.append(item)
 			elif (isinstance(item, Iterable)):
-				for c in item:
+				for c in (reversed(item) if position=='top' else item):
 					if not isinstance(c, Card):
-						raise TypeError('All items in iterable must be Card instances')
+						raise TypeError('all items in iterable must be Card instances')
 					flat_cards.append(c)
 			else:
-				raise TypeError('Only Card instances or iterables of them can be added')
-			
-		if position == 'bottom':
-			self._cards.extend(flat_cards)
-			self._cards = flat_cards[::-1] + self._cards
-		elif position == 'top':
+				raise TypeError('must be Card or iterable of Cards')
+		
+		if position == 'top':
+			self._cards.extendleft(flat_cards)
+		elif position == 'bottom':
 			self._cards.extend(flat_cards)
 		elif position == 'random':
+			temp = list(self._cards)
 			for c in flat_cards:
-				idx = random.randint(0, len(self._cards))
-				self._cards.insert(idx, c)
+				temp.insert(random.randint(0, len(temp)), c)
+			self._cards = deque(temp)
 		else:
 			raise ValueError("position must be 'top', 'bottom', or 'random'")
 
@@ -342,37 +331,19 @@ class Deck:
 		
 		Raises:
 			ValueError if the card is not found.
-			
-		Example:
-			`deck.remove_card(StandardCards.ACE_SPADES)`
 		'''
-		if not isinstance(card, Card):
-			raise TypeError('remove_card() requires a Card instance')
-		for i in range(len(self._cards) - 1, -1, -1): # iterate backwards (from top-bottom of deck)
-			if self._cards[i] == card:
-				del self._cards[i]
-				return
-		# Card DNE in deck
-		raise ValueError(f'{card} is not in deck')
+		self._cards.remove(card)
 	
-	def index(self, card, start=0, end=None):
+	def index(self, card, start=0, stop=None):
 		'''
 		Return the first index of a specific card (from top-bottom).
 
 		Raises:
 			ValueError if not found.
 		'''
-		if not isinstance(card, Card):
-			raise TypeError('index() requires a Card instance')
-		if end is None:
-			end = len(self._cards)
-		# Convert to reverse orientation
-		start = self._reverse_index(start)
-		end = self._reverse_index(end)
-		for i in range(start, end, -1):
-			if self._cards[i] == card:
-				return i
-		raise ValueError(f'{card} is not in deck')
+		if stop is None:
+			stop = len(self._cards)
+		return self._cards.index(card, start, stop)
 
 	def filter(self, predicate):
 		'''
@@ -381,7 +352,7 @@ class Deck:
 		Example (keep cards with a value above 7):
 			`deck.filter(lambda c: deck.value(c) > 7)`
 		'''
-		self._cards = [c for c in self._cards if predicate(c)]
+		self._cards = deque(c for c in self._cards if predicate(c))
 
 	def remove(self, predicate):
 		'''
@@ -390,7 +361,7 @@ class Deck:
 		Example (remove all hearts): 
 			`deck.remove(lambda c: c.suit == Suit.HEARTS)`
 		'''
-		self._cards = [c for c in self._cards if not predicate(c)]
+		self._cards = deque(c for c in self._cards if not predicate(c))
 
 	def count(self, target):
 		'''
@@ -409,7 +380,7 @@ class Deck:
 			return self._cards.count(target)
 		elif callable(target):
 			return sum(1 for c in self._cards if target(c))
-		raise TypeError('count() expects a Card or a predicate function')
+		raise TypeError('count() expects Card or predicate function')
 
 
 	# --- Deck arithmetic ---
@@ -418,24 +389,19 @@ class Deck:
 		Returns a new deck with the same cards/rules as the first deck,  
 		followed by the cards of a second deck.
 
-		Cards are referenced (not copied), but the Deck object is new.
+		Cards are referenced (not copied).
 		'''
 		if not isinstance(other, Deck):
 			return NotImplemented
-		return Deck.from_cards(
-			other._cards + self._cards, # new list created (interal order preserved)
-			include_jokers=self.include_jokers,
-			rank_values=self.rank_values,
-			suit_order=self.suit_order,
-			shuffle=False,
-			_no_copy=True # safe to reuse container
-		)
+		new = self.copy()
+		new._cards.extend(other._cards)
+		return new
 
 	def __iadd__(self, other):
 		'''Add cards from another deck to the bottom of this one.'''
 		if not isinstance(other, Deck):
 			return NotImplemented
-		self._cards = other._cards + self._cards
+		self._cards.extend(other._cards)
 		return self
 	
 	def __sub__(self, other):
@@ -449,22 +415,20 @@ class Deck:
 			- a list of any of the above
 			- another Deck
 		'''
+		to_remove = set()
 		if isinstance(other, Card):
-			to_remove = {other}
+			to_remove.add(other)
 		elif isinstance(other, Deck):
-			to_remove = set(other.cards)
+			to_remove = to_remove.update(other._cards)
 		elif isinstance(other, Iterable):
-			to_remove = set(other)
+			to_remove = to_remove.update(other)
 		else:
 			return NotImplemented
-
-		new_cards = [c for c in self._cards if not (
-			c in to_remove or
-			c.suit in to_remove or
-			c.rank in to_remove
-		)]
+		
+		new_cards = deque(c for c in self._cards if 
+					c not in to_remove and c.suit not in to_remove and c.rank not in to_remove)
 		return Deck.from_cards(
-			new_cards,
+			new_cards, # container already created
 			include_jokers=self.include_jokers,
 			rank_values=self.rank_values,
 			suit_order=self.suit_order,
@@ -474,18 +438,18 @@ class Deck:
 	
 	def __isub__(self, other):
 		'''Remove certain cards, suits, or ranks from this deck.'''
-		if isinstance(other, Deck):
-			to_remove = set(other.cards)
+		to_remove = set()
+		if isinstance(other, Card):
+			to_remove.add(other)
+		elif isinstance(other, Deck):
+			to_remove = to_remove.update(other._cards)
 		elif isinstance(other, Iterable):
-			to_remove = set(other)
+			to_remove = to_remove.update(other)
 		else:
-			to_remove = {other}
+			return NotImplemented
 
-		self._cards = [c for c in self._cards if not (
-			c in to_remove or
-			c.suit in to_remove or
-			c.rank in to_remove
-		)]
+		self._cards = deque(c for c in self._cards if 
+					c not in to_remove and c.suit not in to_remove and c.rank not in to_remove)
 		return self
 	
 	def __mul__(self, n):
@@ -493,9 +457,9 @@ class Deck:
 		if not isinstance(n, int):
 			return NotImplemented
 		if n < 1:
-			raise ValueError('Deck multiplication requires a positive integer')
+			raise ValueError('Deck multiplication requires a positive int')
 		return Deck.from_cards(
-			self._cards * n, # produces a new list object
+			self._cards * n, # produces a new deque object
 			include_jokers=self.include_jokers,
 			rank_values=self.rank_values,
 			suit_order=self.suit_order,
@@ -503,25 +467,24 @@ class Deck:
 			_no_copy=True
 		)
 	
-	def __rmul__(self, n):
-		return self.__mul__(n)
+	__rmul__ = __mul__
 	
 	def __imul__(self, n):
 		'''Repeat this deck's cards `n` times.'''
 		if not isinstance(n, int):
 			return NotImplemented
 		if n < 1:
-			raise ValueError('Deck multiplication requires a positive integer')
+			raise ValueError('Deck multiplication requires a positive int')
 		self._cards *= n
 		return self
 	
 	def __truediv__(self, n):
 		'''
-		Loosely split into `n` decks, distributing all cards (uneven allowed)
+		Loosely split into `n` decks, distributing all cards
 		
 		Equivalent to `deck.split(n, strict=False)`
 		'''
-		return self.split(n=n, strict=False)
+		return self.split(n, strict=False)
 	
 	def __floordiv__(self, n):
 		'''
@@ -529,18 +492,16 @@ class Deck:
 		
 		Equivalent to `deck.split(n, strict=True)`
 		'''
-		return self.split(n=n, strict=True)
+		return self.split(n, strict=True)
 	
 	def __lshift__(self, n):
 		'''Rotate the top `n` cards to the bottom (cut).'''
-		n = n % len(self._cards)
-		self._cards = self._cards[-n:] + self._cards[:-n]
+		self._cards.rotate(-n)
 		return self
 
 	def __rshift__(self, n):
 		'''Rotate the bottom `n` cards to the top (reverse cut).'''
-		n = n % len(self._cards)
-		self._cards = self._cards[n:] + self._cards[:n]
+		self._cards.rotate(n)
 		return self
 
 	# --- Card comparison ---
@@ -584,7 +545,7 @@ class Deck:
 		return (rank_val, suit_index)
 	
 	def sort(self, ascending=False):
-		'''Sort deck according to rank/suit order (descending from top-bottom).'''
-		# By default, sort makes ascending bottom-top (self._cards)
-		# This is equivalent to descending top-bottom
-		self._cards.sort(reverse=ascending, key=self._cmp_key)
+		'''Sort deck according to rank/suit order (in descending order).'''
+		temp = list(self._cards)
+		temp.sort(key=self._cmp_key, reverse=ascending)
+		self._cards = deque(temp)
