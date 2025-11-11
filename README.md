@@ -1,4 +1,4 @@
-# 🃏♦️♣️ cardlib ♥️♠️🎲
+# 🃏♥️♠️ cardlib ♦️♣️🎲
 
 A lightweight, extensible Python library for **cards and dice**.  
 
@@ -23,7 +23,7 @@ Designed for text-based games like poker, custom card games, and probability sim
 ## 📦 Installation
 
 ```bash
-pip install git+https://github.com/jray-8/cardlib.git
+pip install cardlib
 ```
 
 - Downloads the library into `site-packages`

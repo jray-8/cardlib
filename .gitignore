@@ -1,2 +1,13 @@
+# Python bytecode
 __pycache__/
+
+# Distribution / packaging
+build/
+dist/
 *.egg-info/
+
+# Local scripts
+upload.bat
+
+# Secrets
+.pypitoken.txt

@@ -157,13 +157,33 @@ class Deck:
 		if shuffle:
 			self.shuffle()
 
-	def show(self, start=0, stop=None, step=1):
-		'''Print cards in specified range; supports full Python slicing.'''
+	def show(self, *args, step=1):
+		'''
+		show() -> Print all cards.  
+		show(stop) -> Print cards from index 0 up to stop.  
+		show(start, stop[, step]) -> Print cards using list-slicing rules.
+		'''
+		start = None
+		stop = None
+
+		if len(args) == 1:
+			stop = args[0]
+		elif len(args) == 2:
+			start = args[0]
+			stop = args[1]
+		elif len(args) == 3:
+			start = args[0]
+			stop = args[1]
+			step = args[2]
+		elif len(args) > 3:
+			raise TypeError(f'show() expected 1-3 arguments, got {len(args)}')
+
 		cards_to_show = list(self._cards)[start:stop:step]
 		print(', '.join(map(str, cards_to_show)) or '(empty)')
 
 	def draw(self, n=1, strict=True):
-		'''Draw `n` cards from the top of the deck and remove them.
+		'''
+		Draw `n` cards from the top of the deck and remove them.
 		
 		- If strict and fewer than n cards remain, ValueError is raised.
 		- Always returns a list (possibly shorter than n if not strict).
@@ -270,8 +290,10 @@ class Deck:
 		self._cards.reverse()
 
 	def pop(self, index=0):
-		'''Remove and return card at index (0 = top).  
-		O(n) for arbitrary index.'''
+		'''
+		Remove and return card at index (0 = top).  
+		O(n) for arbitrary index.
+		'''
 		if index == 0:
 			return self._cards.popleft()
 		elif index == -1:
@@ -536,8 +558,10 @@ class Deck:
 		return 0
 	
 	def _cmp_key(self, card):
-		'''Return a tuple key suitable for sorting: (rank_value, suit_index).  
-		Unknown suits get -1. If suits are unordered, suit_index is 0.'''
+		'''
+		Return a tuple key suitable for sorting: (rank_value, suit_index).  
+		Unknown suits get -1. If suits are unordered, suit_index is 0.
+		'''
 		rank_val = self.value(card)
 		suit_index = 0
 		if self.suit_order:
