@@ -1,7 +1,7 @@
 import random
 
 class Die:
-	'''Represents a single die with arbitrary number of sides.'''
+	"""Represents a single die with arbitrary number of sides."""
 
 	__slots__ = ('sides', '_value')
 
@@ -12,18 +12,18 @@ class Die:
 		self._value = None # most recent roll
 
 	def roll(self):
-		'''Roll the die and store its value.'''
+		"""Roll the die and store its value."""
 		self._value = random.randint(1, self.sides)
 		return self._value
 	
 	@property
 	def value(self):
-		'''Current face value of the die. None if not rolled yet.'''
+		"""Current face value of the die. None if not rolled yet."""
 		return self._value
 	
 	@value.setter
 	def value(self, val):
-		'''Manually set the die value.'''
+		"""Manually set the die value."""
 		if not (1 <= val <= self.sides):
 			raise ValueError(f'Die must be between 1 and {self.sides}')
 		self._value = val
@@ -36,10 +36,10 @@ class Die:
 	
 
 class Dice:
-	'''Represents a collection of one or more dice.'''
+	"""Represents a collection of one or more dice."""
 
 	def __init__(self, *dice):
-		'''Accepts `Die` instances or numbers of sides to create dice.'''
+		"""Accepts `Die` instances or numbers of sides to create dice."""
 		self._dice = []
 		for d in dice:
 			if isinstance(d, Die):
@@ -50,7 +50,7 @@ class Dice:
 				raise TypeError('Dice constructor accepts Die instances or integers')
 			
 	def roll(self):
-		'''Roll all dice, return the total sum.'''
+		"""Roll all dice, return the total sum."""
 		total = 0
 		for die in self._dice:
 			total += die.roll()
@@ -58,7 +58,7 @@ class Dice:
 	
 	@property
 	def values(self):
-		'''List of the current face values for each die in the collection.'''
+		"""List of the current face values for each die in the collection."""
 		return [die.value for die in self._dice]
 	
 	# Alias for values
@@ -66,7 +66,7 @@ class Dice:
 	
 	@property
 	def total(self):
-		'''Sum of all current face values (treats unrolled dice as 0).'''
+		"""Sum of all current face values (treats unrolled dice as 0)."""
 		return sum((die.value or 0) for die in self._dice)
 	
 	def __getitem__(self, index):
@@ -90,7 +90,7 @@ class Dice:
 # --- Unique Die Types ---
 
 class ExplodingDie(Die):
-	'''A die that "explodes" – rolls again when its maximum side is hit, adding up the total.'''
+	"""A die that "explodes" – rolls again when its maximum side is hit, adding up the total."""
 
 	__slots__ = ('explosions', 'max_explosions')
 
@@ -123,7 +123,7 @@ class ExplodingDie(Die):
 	
 
 class WeightedDie(Die):
-	'''A die with weighted probabilities for each side.'''
+	"""A die with weighted probabilities for each side."""
 
 	__slots__ = ('weights',)
 
