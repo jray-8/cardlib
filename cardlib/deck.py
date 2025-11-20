@@ -93,11 +93,11 @@ class Deck:
 
 		"""
 		# Add cards to deck
-		self._cards = deque() if empty else self._build_cards()
+		self._cards = deque() if empty else self._build_deck()
 		if shuffle:
 			self.shuffle()
 
-	def _build_cards(self):
+	def _build_deck(self):
 		"""
 		Returns cards in a starting order stored in a `deque` object.
 
@@ -156,7 +156,7 @@ class Deck:
 		# Here, subclasses would delete mutable attr or make copies if expected
 		return clone
 	
-	def copy(self, deep=False):
+	def copy(self, *, deep=False):
 		"""
 		Returns a new Deck object that copies this one.
 		
@@ -171,7 +171,8 @@ class Deck:
 		return deck
 	
 	def __repr__(self):
-		return f"Deck({len(self._cards)} card{'s' if len(self._cards) != 1 else ''})"
+		name = type(self).__name__
+		return f"{name}({len(self._cards)} card{'s' if len(self._cards) != 1 else ''})"
 	
 	def __str__(self):
 		return repr(self)
@@ -184,17 +185,21 @@ class Deck:
 		random.shuffle(cards)
 		self._cards = deque(cards)
 
-	def reset(self, shuffle=True):
+	def reset(self, *, shuffle=True):
 		"""Rebuild deck to its original state."""
-		self._cards = self._build_cards()
+		self._cards = self._build_deck()
 		if shuffle:
 			self.shuffle()
 
-	def show(self, *args, step=1):
+	def show(self, *args, step=1, cards=None, sep=', '):
 		"""
-		show() -> Print all cards.  
-		show(stop) -> Print cards from index 0 up to stop.  
-		show(start, stop[, step]) -> Print cards using list-slicing rules.
+		show() → Print all cards.  
+		show(stop) → Print cards from index 0 up to stop.  
+		show(start, stop[, step]) → Print cards using list-slicing rules.
+
+		Parameters:
+			cards: iterable of Card, or None to show the deck's own cards.
+			sep (str): separator string between cards.
 		"""
 		start = None
 		stop = None
@@ -211,10 +216,12 @@ class Deck:
 		elif len(args) > 3:
 			raise TypeError(f'show() expected 1-3 arguments, got {len(args)}')
 
-		cards_to_show = list(self._cards)[start:stop:step]
-		print(', '.join(map(str, cards_to_show)) or '(empty)')
+		cards = self._cards if cards is None else cards
+		cards_to_show = list(cards)[start:stop:step]
+		output = sep.join(map(str, cards_to_show)) or '(empty)'
+		print(output)
 
-	def draw(self, n=1, strict=True):
+	def draw(self, n=1, /, *, strict=True):
 		"""
 		Draw `n` cards from the top of the deck and remove them.
 		
@@ -228,7 +235,7 @@ class Deck:
 		to_draw = min(n, len(self._cards))
 		return [self._cards.popleft() for _ in range(to_draw)]
 	
-	def deal(self, num_hands, cards_each, strict=True):
+	def deal(self, num_hands, cards_each, /, *, strict=True):
 		"""
 		Deal cards from the top of the deck into multiple hands.
 		
@@ -255,7 +262,7 @@ class Deck:
 				hand.append(self._cards.popleft())
 		return hands
 	
-	def split(self, n=2, strict=False):
+	def split(self, n=2, *, strict=False):
 		"""
 		Split the deck into `n` sub-decks as evenly as possible using all cards.
 		
@@ -330,12 +337,12 @@ class Deck:
 		self._cards.clear()
 
 	def reverse(self):
-		"""Reverse the order of the deck."""
+		"""Reverse *IN PLACE*."""
 		self._cards.reverse()
 
-	def pop(self, index=0):
+	def pop(self, index=0, /):
 		"""
-		Remove and return card at index (0 = top).  
+		Remove and return card at index (default 0).  
 		O(n) for arbitrary index.
 		"""
 		if index == 0:
@@ -348,7 +355,7 @@ class Deck:
 			self._cards = deque(temp)
 			return card
 	
-	def insert(self, index, card):
+	def insert(self, index, card, /):
 		"""Insert card before index (top of deck = 0)."""
 		if not isinstance(card, self.CARD_TYPE):
 			raise InvalidCardTypeError(card, self)
@@ -395,7 +402,7 @@ class Deck:
 		else:
 			raise ValueError("position must be 'top', 'bottom', or 'random'")
 
-	def remove(self, card):
+	def remove(self, card, /):
 		"""
 		Remove the first occurrence of a card from the deck.
 		
@@ -403,7 +410,7 @@ class Deck:
 		"""
 		self._cards.remove(card)
 	
-	def index(self, card, start=0, stop=None):
+	def index(self, card, start=0, stop=None, /):
 		"""
 		Returns the first index of a card (from top-bottom).
 
@@ -413,7 +420,7 @@ class Deck:
 			stop = len(self._cards)
 		return self._cards.index(card, start, stop)
 
-	def filter(self, predicate):
+	def filter(self, predicate, /):
 		"""
 		Keep only cards where `predicate(card)` is True.
 		
@@ -423,11 +430,11 @@ class Deck:
 		"""
 		self._cards = deque(c for c in self._cards if predicate(c))
 
-	def remove_if(self, predicate):
+	def remove_if(self, predicate, /):
 		"""Remove all cards where `predicate(card)` is True."""
 		self._cards = deque(c for c in self._cards if not predicate(c))
 
-	def count(self, target):
+	def count(self, target, /):
 		"""
 		Returns number of cards matching a given condition or specific card.
 
@@ -556,25 +563,37 @@ class Deck:
 		return self
 
 	# --- Card comparison ---
-	def value(self, card):
+	def value(self, card, /):
 		"""Get numeric value of card according to deck rules."""
 		return 0 # default
 	
-	def compare(self, card_1, card_2):
+	def compare(self, card1, card2, /):
 		"""
 		Compare two cards using deck rules. Returns -1, 0, or 1.
 
 		Uses `_cmp_key` by default.
 		"""
-		a, b = self._cmp_key(card_1), self._cmp_key(card_2)
+		a, b = self._cmp_key(card1), self._cmp_key(card2)
 		return (a > b) - (a < b)
 	
-	def _cmp_key(self, card):
-		"""Returns a tuple key or hash value suitable for sorting."""
+	def _cmp_key(self, card, /):
+		"""
+		Return a comparison key for a card.
+
+		Used internally by deck sorting and comparison methods.
+		Subclasses should override this to define ordering rules.
+
+		Returns:
+		 	A comparable object (e.g., int, tuple, str) representing the card's sort value.
+		"""
 		return 0 # All cards are equal by default
 	
-	def sort(self, descending=False):
-		"""Sort deck in ascending order using `_cmp_key()`."""
+	def sort_cards(self, cards, /, *, descending=False):
+		"""Sort a list of cards using this deck's `_cmp_key`."""
+		cards.sort(key=self._cmp_key, reverse=descending)
+	
+	def sort(self, *, descending=False):
+		"""Sort deck in ascending order using `_cmp_key`."""
 		temp = list(self._cards)
 		temp.sort(key=self._cmp_key, reverse=descending)
 		self._cards = deque(temp)
@@ -590,6 +609,8 @@ class PlayingCardDeck(Deck):
 	- Internally uses deque
 	- O(1) draw, and add to top/bottom
 	"""
+	
+	CARD_TYPE = PlayingCard
 
 	def __init__(self,
 		*,
@@ -624,12 +645,9 @@ class PlayingCardDeck(Deck):
 		"""Map suits to their indices in the ordering."""
 
 		# Add cards in new deck order
-		self._cards = deque() if empty else self._build_cards()
+		super().__init__(shuffle=shuffle, empty=empty)
 
-		if shuffle:
-			self.shuffle()
-
-	def _build_cards(self):
+	def _build_deck(self):
 		"""
 		Returns cards in: **New Deck Order**:
 
@@ -678,7 +696,7 @@ class PlayingCardDeck(Deck):
 			_no_copy=_no_copy)
 
 	# --- Container methods ---
-	def remove_if(self, predicate):
+	def remove_if(self, predicate, /):
 		"""
 		Remove all cards matching a condition.
 		
@@ -687,7 +705,7 @@ class PlayingCardDeck(Deck):
 		"""
 		return super().remove_if(predicate)
 
-	def count(self, target):
+	def count(self, target, /):
 		"""
 		Returns number of cards matching a given condition or specific card.
 
@@ -753,11 +771,11 @@ class PlayingCardDeck(Deck):
 	
 
 	# --- Card comparison ---
-	def value(self, card):
+	def value(self, card, /):
 		"""Get numeric value of card according to deck rules."""
 		return self.rank_values.get(card.rank, 0)
 	
-	def _cmp_key(self, card):
+	def _cmp_key(self, card, /):
 		"""
 		Returns a tuple key suitable for sorting: (rank_value, suit_index).
 		
@@ -769,6 +787,10 @@ class PlayingCardDeck(Deck):
 			suit_index = self._suit_index.get(card.suit, -1)
 		return (rank_val, suit_index)
 	
-	def sort(self, descending=False):
+	def sort_cards(self, cards, /, *, descending=False):
+		"""Sort a list of cards according to rank/suit."""
+		return super().sort_cards(cards, descending=descending)
+	
+	def sort(self, *, descending=False):
 		"""Sort deck in ascending order according to rank/suit."""
-		super().sort(descending=descending)
+		return super().sort(descending=descending)

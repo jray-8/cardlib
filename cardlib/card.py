@@ -76,10 +76,6 @@ class SimpleCard(Card):
 				self.rank == other.rank and 
 				self.suit == other.suit)
 	
-	# Inequality comparisons require a deck context
-	def __lt__(self, _):
-		raise NotImplementedError('use Deck.compare(card1, card2) for inequality comparisons')
-	
 	def __hash__(self):
 		return hash((self.rank, self.suit))
 
@@ -120,6 +116,16 @@ class PlayingCard(SimpleCard):
 	
 	def __str__(self):
 		return f'{self.rank.value}{self.suit.value}'
+	
+	# Inequality comparisons require a deck context
+	def __lt__(self, other):
+		if isinstance(other, PlayingCard):
+			raise TypeError('PlayingCard instances do not support ordering; use Deck.compare(card1, card2) instead')
+		return NotImplemented
+	
+	__le__ = __lt__
+	__gt__ = __lt__
+	__ge__ = __lt__
 	
 
 # === CONSTANTS ===
